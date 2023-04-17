@@ -1,0 +1,2 @@
+# GISConverterToolsets
+ArcGISのゴミみたいな変換ツールに依存しないためのものです。
