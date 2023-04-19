@@ -10,13 +10,13 @@ rx::xml_node<>* GmlDoc::find_node(rx::xml_node<>* node, std::string& name) {
 
     for (auto it = front->first_node(); it; it = it->next_sibling()) {
       if (it->name_size() > 0) {
-        std::cout << "Queued: " << it->name() << std::endl;
         if (std::string(it->name()) == name) return it;
       }
 
       que.push(it);
     }
   }
+  return nullptr;
 }
 
 double GmlDoc::sizex() { return 0; }
@@ -38,17 +38,31 @@ double GmlDoc::bry() { return 0.0; }
 void GmlDoc::cellsize_internal(int* nx, int* ny) {}
 
 std::vector<double> GmlDoc::size_lat_lon() {
+  using namespace std;
   auto envnode = this->find_node_by_name(std::string("gml:Envelope"));
   std::vector<double> ret(4);
-
-  std::stringstream ss_lowercorner{envnode->first_node("gml:low")->value()};
+  /// 便宜上下限と上限と説明しているが実は違う。
+  /// 地表に矩形を描いたとき、左上の経度、緯度をそれぞれ
+  /// ret[1]、ret[2]に入れている。
+  /// 右下をret[3]、ret[0]に入れている。
+  ///
+  /// ret[0] 緯度の下限
+  /// ret[1] 経度の下限
+  /// ret[2] 緯度の上限
+  /// ret[3] 経度の上限
+  std::stringstream ss_lowercorner{
+      envnode->first_node("gml:lowerCorner")->value()};
+  std::string b;
+  // getline(ss_lowercorner, b);
   for (size_t i = 0; i < 2; i++) {
     std::string buff("");
     std::getline(ss_lowercorner, buff, ' ');
+    cout << buff << endl;
     ret[i] = std::stod(buff);
   }
 
-  std::stringstream ss_uppercorner{envnode->first_node("gml:high")->value()};
+  std::stringstream ss_uppercorner{
+      envnode->first_node("gml:upperCorner")->value()};
   for (size_t i = 0; i < 2; i++) {
     std::string buff("");
     std::getline(ss_uppercorner, buff, ' ');
@@ -65,14 +79,16 @@ std::vector<int> GmlDoc::size_cells() {
   for (size_t i = 0; i < 2; i++) {
     std::string buff("");
     std::getline(ss_uppercorner, buff, ' ');
-    ret[2] = std::stoi(buff);
+    ret[i] = std::stoi(buff) + 1;
   }
-  return std::vector<int>();
+  return ret;
 }
 
 GmlDoc::GmlDoc(std::string filename)
     : document(new rx::xml_document<>()),
-      file(new rx::file<>(filename.c_str())) {}
+      file(new rx::file<>(filename.c_str())),
+      dataset(nullptr),
+      gdriver(nullptr) {}
 
 bool GmlDoc::try_parse() {
   try {
@@ -82,4 +98,13 @@ bool GmlDoc::try_parse() {
     return false;
   }
 }
+ConverterManager::ConverterManager(int epsg = 6668)
+    : spatialref(OGRSpatialReference()) {
+  this->spatialref.importFromEPSG(epsg);
+}
+
+void ConverterManager::add_queue(fs::path path) {
+  // doque.emplace(path.string());
+}
+
 }  // namespace gistool

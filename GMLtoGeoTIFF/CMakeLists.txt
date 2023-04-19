@@ -5,7 +5,7 @@ project(GMLtoGTIFF VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
 include(C:/vcpkg/scripts/buildsystems/vcpkg.cmake)
 find_package(GDAL CONFIG REQUIRED)
-
+find_package(ZLIB REQUIRED)
 add_definitions(-DUNICODE)
 add_definitions(-D_UNICODE)
 set(CMAKE_CXX_STANDARD 17)

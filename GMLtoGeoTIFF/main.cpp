@@ -9,12 +9,14 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "GmlDoc.h"
 #include "cxxopts.hpp"
 #include "rapidxml.hpp"
 #include "rapidxml_utils.hpp"
+
 using String = std::string;
 
 namespace fs = std::filesystem;
@@ -22,18 +24,33 @@ namespace rx = rapidxml;
 
 using namespace std;
 using namespace gistool;
-int main(int argc, char* argv) {
-  setlocale(LC_CTYPE, "");
+int main(int argc, char* argv[]) {
   cxxopts::Options options("opts");
   GDALAllRegister();
   CPLPushErrorHandler(CPLQuietErrorHandler);
-
+  bool blist = false;
   try {
-    std::string folder;
-    options.add_options()("folder", "Folder name",
-                          cxxopts::value<std::string>(folder));
+    options.add_options()("list", "list source files",
+                          cxxopts::value<bool>()->default_value("false"));
+    auto result = options.parse(argc, argv);
+    blist = result["list"].as<bool>();
+
   } catch (cxxopts::OptionException& e) {
     std::cout << options.usage() << std::endl;
+    std::cout << "Invalid args" << std::endl;
+    return -1;
+  }
+
+  vector<fs::path> sources;
+  if (blist) cout << "Listings" << endl;
+
+  for (const auto& it : fs::directory_iterator(fs::current_path())) {
+    if (!it.is_directory()) {
+      if (blist)
+        cout << it.path().filename() << endl;
+      else if (it.path().extension() == ".xml")
+        sources.push_back(it.path());
+    }
   }
 
   String file("FG-GML-5338-62-00-DEM5A-20210115.xml");
@@ -41,23 +58,19 @@ int main(int argc, char* argv) {
   auto doc = new GmlDoc(file);
   doc->try_parse();
 
-  auto cellsizenode = doc->find_node_by_name(String("gml:GridEnvelope"));
-
   double transformer[6] = {};
-  transformer[0] = 138.25;
-  transformer[1] = (-138.25 + 138.2625) / 225;
-  transformer[2] = 0;
-  transformer[3] = 35.841666667;
-  transformer[4] = 0;
-  transformer[5] = (+35.833333333 - 35.841666667) / 150;
+  doc->get_transform(transformer);
+
   auto node = doc->find_node_by_name(s);
 
+  return 0;
   {
     GDALDriver* gdriver = nullptr;
     gdriver = GetGDALDriverManager()->GetDriverByName("GTiff");
+    auto cells = doc->size_cells();
 
-    int grid_x_size = 225;
-    int grid_y_size = 150;
+    int grid_x_size = cells[0];
+    int grid_y_size = cells[1];
 
     auto dataset = gdriver->Create("tes2.tiff", grid_x_size, grid_y_size, 1,
                                    GDT_Float32, NULL);
