@@ -38,11 +38,27 @@ double GmlDoc::bry() { return 0.0; }
 bool GmlDoc::write_gtiff() {
   if (!this->try_parse()) return false;
   using namespace std;
+  double transform[6] = {0};
+  this->get_transform(transform);
   auto node = this->find_node_by_name(string("gml:tupleList"));
   if (!node) return false;
   auto cells = this->size_cells();
-  this->dataset = gdriver->Create(file_name.c_str(), cells[0], cells[1], 1,
-                                  GDT_Float32, NULL);
+  fs::path out_dir;
+  out_dir = fs::current_path();
+  out_dir.append("out");
+  if (!fs::exists(out_dir)) {
+    fs::create_directory(out_dir);
+  }
+  fs::path out_path;
+
+  out_path.append(file_path.filename().c_str());
+  out_path.replace_extension(".tiff");
+  cout << out_path.string() << endl;
+  out_dir.append(out_path.string());
+
+  this->dataset = gdriver->Create(out_dir.string().c_str(), cells[0], cells[1],
+                                  1, GDT_Float32, NULL);
+
   std::stringstream ss{node->value()};
   std::string buf;
   std::getline(ss, buf);
@@ -50,17 +66,29 @@ bool GmlDoc::write_gtiff() {
 
   for (size_t row = 0; row < cells[1]; row++) {
     for (size_t col = 0; col < cells[0]; col++) {
-      std::getline(ss, buf);
-      std::stringstream splited(buf);
-      std::string h_buf("");
-      for (size_t i = 0; i < 2; i++) {
-        if (i == 1) val[col] = stof(h_buf);
+      if (std::getline(ss, buf)) {
+        std::stringstream splited(buf);
+        std::string h_buf("");
+        for (size_t i = 0; i < 2; i++) {
+          getline(splited, h_buf, ',');
+          if (i == 1) val[col] = stof(h_buf);
+        }
+      } else {
+        val[col] = -9999;
       }
     }
 
     dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, row, cells[0], 1, val,
                                         cells[0], 1, GDT_Float32, 0, 0);
   }
+
+  dataset->SetGeoTransform(transform);
+  dataset->GetRasterBand(1)->SetNoDataValueAsInt64(-9999);
+  dataset->SetSpatialRef(spatialref);
+  GDALClose(dataset);
+  delete[] val;
+
+  return true;
 }
 
 void GmlDoc::cellsize_internal(int* nx, int* ny) {}
@@ -112,14 +140,18 @@ std::vector<int> GmlDoc::size_cells() {
   return ret;
 }
 
-GmlDoc::GmlDoc(std::string filename)
+GmlDoc::GmlDoc(fs::path filename)
     : document(new rx::xml_document<>()),
-      file(new rx::file<>(filename.c_str())),
+      file(new rx::file<>(filename.string().c_str())),
       dataset(nullptr),
       gdriver(nullptr),
-      file_name(filename) {}
+      file_path(filename),
+      spatialref(nullptr) {}
 
-GmlDoc::~GmlDoc() { GDALClose(dataset); }
+GmlDoc::~GmlDoc() {
+  delete document;
+  delete file;
+}
 
 bool GmlDoc::try_parse() {
   try {

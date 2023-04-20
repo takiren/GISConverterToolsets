@@ -36,11 +36,13 @@ class GmlDoc {
   void cellsize_internal(int* nx, int* ny);
   GDALDataset* dataset;
   GDALDriver* gdriver;
+  OGRSpatialReference* spatialref;
 
-  std::string file_name;
+  fs::path file_path;
+
  public:
   GmlDoc() = delete;
-  explicit GmlDoc(std::string filename);
+  explicit GmlDoc(fs::path filename);
 
   virtual ~GmlDoc();
   bool try_parse();
@@ -78,9 +80,7 @@ class GmlDoc {
     dataset->SetGeoTransform(transform);
   }
 
-  inline void set_spatialref(OGRSpatialReference& sref) {
-    dataset->SetSpatialRef(&sref);
-  }
+  inline void set_spatialref(OGRSpatialReference& sref) { spatialref = &sref; }
 
   inline void set_gdaldriver(GDALDriver* driver) { this->gdriver = driver; }
 };
