@@ -35,6 +35,34 @@ double GmlDoc::brx() { return 0.0; }
 
 double GmlDoc::bry() { return 0.0; }
 
+bool GmlDoc::write_gtiff() {
+  if (!this->try_parse()) return false;
+  using namespace std;
+  auto node = this->find_node_by_name(string("gml:tupleList"));
+  if (!node) return false;
+  auto cells = this->size_cells();
+  this->dataset = gdriver->Create(file_name.c_str(), cells[0], cells[1], 1,
+                                  GDT_Float32, NULL);
+  std::stringstream ss{node->value()};
+  std::string buf;
+  std::getline(ss, buf);
+  auto val = new float[cells[0]];
+
+  for (size_t row = 0; row < cells[1]; row++) {
+    for (size_t col = 0; col < cells[0]; col++) {
+      std::getline(ss, buf);
+      std::stringstream splited(buf);
+      std::string h_buf("");
+      for (size_t i = 0; i < 2; i++) {
+        if (i == 1) val[col] = stof(h_buf);
+      }
+    }
+
+    dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, row, cells[0], 1, val,
+                                        cells[0], 1, GDT_Float32, 0, 0);
+  }
+}
+
 void GmlDoc::cellsize_internal(int* nx, int* ny) {}
 
 std::vector<double> GmlDoc::size_lat_lon() {
@@ -88,7 +116,10 @@ GmlDoc::GmlDoc(std::string filename)
     : document(new rx::xml_document<>()),
       file(new rx::file<>(filename.c_str())),
       dataset(nullptr),
-      gdriver(nullptr) {}
+      gdriver(nullptr),
+      file_name(filename) {}
+
+GmlDoc::~GmlDoc() { GDALClose(dataset); }
 
 bool GmlDoc::try_parse() {
   try {

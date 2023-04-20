@@ -37,9 +37,12 @@ class GmlDoc {
   GDALDataset* dataset;
   GDALDriver* gdriver;
 
+  std::string file_name;
  public:
   GmlDoc() = delete;
   explicit GmlDoc(std::string filename);
+
+  virtual ~GmlDoc();
   bool try_parse();
   rx::xml_node<>* find_node(rx::xml_node<>* node, std::string& name);
   rx::xml_node<>* find_node_by_name(std::string& name) {
@@ -57,6 +60,8 @@ class GmlDoc {
   double tly();
   double brx();
   double bry();
+
+  bool write_gtiff();
 
   inline void get_transform(double transform[6]) {
     auto env_latlon = this->size_lat_lon();

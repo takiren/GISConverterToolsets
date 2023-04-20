@@ -63,7 +63,6 @@ int main(int argc, char* argv[]) {
 
   auto node = doc->find_node_by_name(s);
 
-  return 0;
   {
     GDALDriver* gdriver = nullptr;
     gdriver = GetGDALDriverManager()->GetDriverByName("GTiff");
@@ -118,6 +117,8 @@ int main(int argc, char* argv[]) {
     GDALClose(dataset);
     GDALDestroyDriverManager();
   }
+
+  GDALDestroyDriverManager();
   return 0;
 }
 
