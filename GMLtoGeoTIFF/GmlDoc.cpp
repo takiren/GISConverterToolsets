@@ -83,7 +83,7 @@ bool GmlDoc::write_gtiff() {
   }
 
   dataset->SetGeoTransform(transform);
-  dataset->GetRasterBand(1)->SetNoDataValueAsInt64(-9999);
+  dataset->GetRasterBand(1)->SetNoDataValue(-9999);
   dataset->SetSpatialRef(spatialref);
   GDALClose(dataset);
   delete[] val;
