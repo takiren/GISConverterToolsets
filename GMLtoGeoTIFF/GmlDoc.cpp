@@ -35,7 +35,7 @@ double GmlDoc::brx() { return 0.0; }
 
 double GmlDoc::bry() { return 0.0; }
 
-bool GmlDoc::write_gtiff() {
+bool GmlDoc::write_gtiff(fs::path outpath) {
   if (!this->try_parse()) return false;
   using namespace std;
   double transform[6] = {0};
@@ -43,20 +43,17 @@ bool GmlDoc::write_gtiff() {
   auto node = this->find_node_by_name(string("gml:tupleList"));
   if (!node) return false;
   auto cells = this->size_cells();
-  fs::path out_dir;
-  out_dir = fs::current_path();
-  out_dir.append("out");
-  if (!fs::exists(out_dir)) {
-    fs::create_directory(out_dir);
+
+  if (!fs::exists(outpath)) {
+    fs::create_directory(outpath);
   }
   fs::path out_path;
 
   out_path.append(file_path.filename().c_str());
   out_path.replace_extension(".tiff");
   cout << out_path.string() << endl;
-  out_dir.append(out_path.string());
-
-  this->dataset = gdriver->Create(out_dir.string().c_str(), cells[0], cells[1],
+  outpath.append(out_path.string());
+  this->dataset = gdriver->Create(outpath.string().c_str(), cells[0], cells[1],
                                   1, GDT_Float32, NULL);
 
   std::stringstream ss{node->value()};
@@ -74,7 +71,7 @@ bool GmlDoc::write_gtiff() {
           if (i == 1) val[col] = stof(h_buf);
         }
       } else {
-        val[col] = -9999;
+        val[col] = -9999.f;
       }
     }
 

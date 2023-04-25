@@ -63,7 +63,7 @@ class GmlDoc {
   double brx();
   double bry();
 
-  bool write_gtiff();
+  bool write_gtiff(fs::path outpath = fs::current_path().append("out"));
 
   inline void get_transform(double transform[6]) {
     auto env_latlon = this->size_lat_lon();
