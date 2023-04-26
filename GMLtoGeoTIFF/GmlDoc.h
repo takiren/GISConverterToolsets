@@ -52,7 +52,7 @@ class GmlDoc {
   }
 
   std::vector<double> size_lat_lon();
-  std::vector<int> size_cells();
+  std::vector<uint32_t> size_cells();
   double sizex();
   double sizey();
 
@@ -63,7 +63,7 @@ class GmlDoc {
   double brx();
   double bry();
 
-  bool write_gtiff(fs::path outpath = fs::current_path().append("out"));
+  bool write_gtiff(const fs::path path = fs::current_path().append("out"));
 
   inline void get_transform(double transform[6]) {
     auto env_latlon = this->size_lat_lon();

@@ -12,6 +12,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 file(GLOB HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h")
 file(GLOB SOURCES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.cpp")
+list(APPEND CGLOB
+    ${CMAKE_CURRENT_SOURCE_DIR}/cppglob/src/glob.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cppglob/src/fnmatch.cpp
+)
 
-add_executable(tlgml ${SOURCES} ${HEADERS})
+add_executable(tlgml ${SOURCES} ${HEADERS} ${CGLOB})
+target_include_directories(tlgml PRIVATE cppglob/include)
 target_link_libraries(tlgml PRIVATE GDAL::GDAL)

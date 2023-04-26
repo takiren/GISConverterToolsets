@@ -35,7 +35,7 @@ double GmlDoc::brx() { return 0.0; }
 
 double GmlDoc::bry() { return 0.0; }
 
-bool GmlDoc::write_gtiff(fs::path outpath) {
+bool GmlDoc::write_gtiff(const fs::path path) {
   if (!this->try_parse()) return false;
   using namespace std;
   double transform[6] = {0};
@@ -43,26 +43,30 @@ bool GmlDoc::write_gtiff(fs::path outpath) {
   auto node = this->find_node_by_name(string("gml:tupleList"));
   if (!node) return false;
   auto cells = this->size_cells();
-
-  if (!fs::exists(outpath)) {
-    fs::create_directory(outpath);
+  fs::path outpath = path;
+  {
+    fs::path parentpath = file_path.parent_path();
+    auto b = parentpath.begin();
+    std::advance(b, 1);
+    auto l = parentpath.end();
+    std::for_each(b, l, [&outpath](const fs::path& elem) {
+      outpath.append(elem.string());
+    });
   }
-  fs::path out_path;
+  if (!fs::exists(outpath)) fs::create_directories(outpath);
 
-  out_path.append(file_path.filename().c_str());
-  out_path.replace_extension(".tiff");
-  cout << out_path.string() << endl;
-  outpath.append(out_path.string());
+  outpath.append(file_path.filename().c_str());
+  outpath.replace_extension(".tiff");
+  cout << outpath.string() << endl;
   this->dataset = gdriver->Create(outpath.string().c_str(), cells[0], cells[1],
                                   1, GDT_Float32, NULL);
 
   std::stringstream ss{node->value()};
   std::string buf;
   std::getline(ss, buf);
-  auto val = new float[cells[0]];
-
-  for (size_t row = 0; row < cells[1]; row++) {
-    for (size_t col = 0; col < cells[0]; col++) {
+  float* val = new float[cells[0]];
+  for (uint32_t row = 0; row < cells[1]; row++) {
+    for (uint32_t col = 0; col < cells[0]; col++) {
       if (std::getline(ss, buf)) {
         std::stringstream splited(buf);
         std::string h_buf("");
@@ -124,9 +128,9 @@ std::vector<double> GmlDoc::size_lat_lon() {
   return ret;
 }
 
-std::vector<int> GmlDoc::size_cells() {
+std::vector<uint32_t> GmlDoc::size_cells() {
   auto envnode = this->find_node_by_name(std::string("gml:GridEnvelope"));
-  std::vector<int> ret(2);
+  std::vector<uint32_t> ret(2);
 
   std::stringstream ss_uppercorner{envnode->first_node("gml:high")->value()};
   for (size_t i = 0; i < 2; i++) {

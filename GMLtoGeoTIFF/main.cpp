@@ -5,6 +5,7 @@
 #include <gdal_vrt.h>
 #include <geotiff.h>
 #include <geotiffio.h>
+#include <ogr_spatialref.h>
 #include <stdio.h>
 #include <vrtdataset.h>
 
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]) {
         gdoc->set_gdaldriver(GetGDALDriverManager()->GetDriverByName("GTiff"));
         gdoc->set_spatialref(sref);
 
-        auto ftr = executor.submit([gdoc,&target_directory] {
+        auto ftr = executor.submit([gdoc, &target_directory] {
           gdoc->write_gtiff(target_directory);
           delete gdoc;
         });
