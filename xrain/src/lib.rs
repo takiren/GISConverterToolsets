@@ -85,6 +85,7 @@ impl PrimaryMesh {
     }
 }
 
+#[derive(Debug)]
 pub struct SecondaryMesh {
     //1次メッシュの下２桁
     primary_x: u8,
@@ -95,27 +96,7 @@ pub struct SecondaryMesh {
     xrain_cells: CellComposite,
 }
 
-pub struct CellComposite {
-    cells: Vec<XrainCell<u16>>,
-}
-
-impl Default for CellComposite {
-    fn default() -> Self {
-        Self { cells: Vec::new() }
-    }
-}
-
-impl CellComposite {
-    fn push(&mut self, v: XrainCell<u16>) -> Result<()> {
-        if self.cells.len() < 1600 {
-            self.cells.push(v);
-        } else {
-            return Err(anyhow::anyhow!("Out of capacity"));
-        }
-
-        Ok(())
-    }
-}
+type CellComposite = Vec<XrainCell<u16>>;
 
 impl SecondaryMesh {
     fn new(primary_x: u8, primary_y: u8, x: u8, y: u8, cells: CellComposite) -> Self {
@@ -142,7 +123,7 @@ impl SecondaryMesh {
             vline.reserve(40);
             for j in 0..40 {
                 let index = i * 40 + j;
-                vline.push(self.xrain_cells.cells.get(index).unwrap().strength);
+                vline.push(self.xrain_cells.get(index).unwrap().strength);
             }
 
             wtr.serialize(vline)?;
@@ -155,6 +136,7 @@ impl SecondaryMesh {
 pub struct XrainDataBlock<T> {
     cells: Vec<XrainCell<T>>,
 }
+#[derive(Debug)]
 pub struct XrainCell<T> {
     quality: T,
     strength: T,
@@ -289,55 +271,50 @@ impl XrainParser {
         Ok((input, header))
     }
 
-    fn read_sequential_block<'a>(&self, input: &'a [u8]) -> Result<(&'a [u8], Vec<SecondaryMesh>)> {
-        //緯度
-        let (input, lat) = take_streaming(input, 1u8).unwrap();
-        //経度
-        let (input, lon) = take_streaming(input, 1u8).unwrap();
-
-        //let prim_mesh_code = Into::<u32>::into(lat[0]) * 100 + Into::<u32>::into(lon[0]);
-
-        //１次メッシュコード上２桁
-        let lat = lat[0];
-        //１次メッシュコード下２桁
-        let lon = lon[0];
-
-        let (input, mesh_code) = take_streaming(input, 1u8).unwrap();
-
-        let grid_position: u8 = mesh_code[0];
-        let ymask: u8 = 0b11110000;
-        let xmask: u8 = 0b00001111;
-
-        //西北、南北方向にそれぞれ８分割した位置
-        //１次メッシュ内での経度位置(西から東,)
-        let xnum = grid_position & xmask;
-        //１次メッシュ内での緯度位置(南から北,)
-        let ynum = (grid_position & ymask) >> 4;
-
-        let mut i: u8 = 0;
-        //連続するブロック数
-        let (input, block_num) = take_streaming(input, 1u8).unwrap();
+    fn read_sequential_block<'a>(input: &'a [u8]) -> Result<(&'a [u8], Vec<SecondaryMesh>)> {
+        let (input, block_header) = XrainParser::read_block_header(input)?;
         //セル数は1から始まるので1を弾いてあげる。
-        let block_num = block_num[0] - 1;
-        let mut input = input;
+        let block_num = block_header.block_num - 1;
+        println!("{:?}", block_header);
+
+        let mut buf = input;
         let mut v_smesh: Vec<SecondaryMesh> = Vec::new();
+        let mut i = 0;
         while i < block_num {
             //先頭の２次メッシュコードに処理しているブロックのインデックスを足す。
             //それを８で割るとどこの１次メッシュに属しているかがわかる。
             //TODO:u8で足りるよね？考える
-            let currentx = xnum + i;
-            let currenty = ynum;
-            let primary_x = lon + (currentx / 8);
-            let primary_y = lat;
+            let currentx = block_header.mesh_x + i;
+            let currenty = block_header.mesh_y;
+            let primary_x = block_header.lon + (currentx / 8);
+            let primary_y = block_header.lat;
             let currentx = currentx % 8;
-            let (input_internal, cmp) = XrainParser::read_single_block(input)?;
-            input = input_internal;
+            let (input_internal, cmp) = XrainParser::read_single_block(buf)?;
+            buf = input_internal;
             let smesh = SecondaryMesh::new(primary_x, primary_y, currentx, currenty, cmp);
             v_smesh.push(smesh);
             i += 1;
         }
+        Ok((buf, v_smesh))
+    }
 
-        Ok((input, v_smesh))
+    /// v:1次メッシュコード上2桁
+    /// u:1次メッシュコード下2桁
+    ///
+    fn read_primary(input: &[u8], v: u8, u: u8) -> Result<()> {
+        let mut primary_mesh = PrimaryMesh {
+            lat: u,
+            lon: v,
+            secondary_mesh: BTreeMap::new(),
+        };
+
+        let (input, smeshes) = XrainParser::read_sequential_block(input)?;
+        let smeshes: Vec<SecondaryMesh> = smeshes
+            .into_iter()
+            .filter(|f| (f.primary_x == u) && (f.primary_y == v))
+            .collect();
+
+        todo!()
     }
 
     fn read_single_block(input: &[u8]) -> Result<(&[u8], CellComposite)> {
@@ -345,7 +322,7 @@ impl XrainParser {
         //一つのブロックに入っているセルデータ数は40x40=1600
         for _i in 0..1600 {
             let (input, new_cell) = XrainParser::read_cell(input)?;
-            cellcmp.push(new_cell)?;
+            cellcmp.push(new_cell);
         }
         Ok((input, cellcmp))
     }
@@ -375,6 +352,7 @@ impl XrainParser {
 
         //１次メッシュコード上２桁
         let lat = lat[0];
+        print!("{}", lat);
         //１次メッシュコード下２桁
         let lon = lon[0];
 
@@ -496,11 +474,30 @@ mod tests {
     fn test_read_single_block() -> Result<()> {
         let data = XrainParser::read_file("KANTO00001-20191011-0100-G000-EL000000")?;
         let (input, header) = XrainParser::read_header(data.as_slice())?;
-        let (input, bheader) = XrainParser::read_block_header(input)?;
-        println!("{:?}", header);
-        let (input, cells) = XrainParser::read_single_block(input)?;
-        
-        println!("{:?}", bheader);
+
+        let mut i: u16 = 0;
+        let mut buf = input;
+        while i < header.block_num {
+            let (input_internal, meshes) = XrainParser::read_sequential_block(buf)?;
+            meshes.iter().for_each(|f| {
+                println!("{}{}{}{}", f.primary_y, f.primary_x, f.y, f.x);
+            });
+            // meshes
+            //     .into_iter()
+            //     .filter(|ms| (ms.primary_x == 38) && (ms.primary_y == 54))
+            //     .for_each(|s| {
+            //         println!("test");
+            //         let name = String::from("5438");
+            //         let name = name + s.y.to_string().as_str();
+            //         let name = name + s.x.to_string().as_str();
+            //         let name = name + ".csv";
+            //         s.save_csv(name);
+            //     });
+            buf = input_internal;
+            println!("{:?}", header);
+
+            i += 1;
+        }
         Ok(())
     }
 }

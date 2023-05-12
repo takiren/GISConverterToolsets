@@ -1,0 +1,13 @@
+
+running 3 tests
+test tests::it_works ... ok
+test tests::test_header_read ... ok
+test tests::test_read_single_block ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
